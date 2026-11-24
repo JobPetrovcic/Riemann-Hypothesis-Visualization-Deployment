@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<meta charset="UTF-8" />
+<style>
+  .optionsMenu {
+    font: 12px sans-serif;
+  }
+
+  .nodes text {
+    font: 12px sans-serif;
+  }
+
+  #helpToolBar,
+  #legendToolBar,
+  #colorLegendToolBar {
+    font: 12px sans-serif;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .scoreboard {
+    font-family: sans-serif;
+    border: 4px solid black;
+    border-radius: 15px;
+    padding: 20px;
+  }
+
+  .scoreboard text {
+    font-size: 20px;
+    fill: black;
+  }
+
+  .divider {
+    stroke: black;
+    stroke-width: 2;
+  }
+</style>
+
+<body>
+  <!-- load the d3.js library -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script type="text/javascript" src="scripts/helpers.js"></script>
+  <script type="text/javascript" src="scripts/constants.js"></script>
+  <script type="text/javascript" src="scripts/librarySpecificSettings.js"></script>
+  <script type="text/javascript" src="graph_data.js"></script>
+  <script type="text/javascript" src="scripts/setUpData.js"></script>
+  <script type="text/javascript" src="scripts/setupSvg.js"></script>
+  <script type="text/javascript" src="scripts/expansion.js"></script>
+  <script type="text/javascript" src="scripts/arrangeTree.js"></script>
+  <script type="text/javascript">
+    startingPoint = true;
+
+    const allLinks = mainGraphics.append("g").attr("class", "allLinks");
+    const allNodes = mainGraphics.append("g").attr("class", "allNodes");
+    var nodes_selection;
+
+    // link objects are created only for shown links and kept so that tracking survives collapses
+    const linkObjects = new Map();
+    function linkObject(u, v) {
+      const key = u + "->" + v;
+      let link = linkObjects.get(key);
+      if (link === undefined) {
+        link = {
+          source: nodes[u],
+          target: nodes[v],
+          offset: (gapBetweenLevels / 2) * Math.random(),
+          id: key,
+        };
+        linkObjects.set(key, link);
+      }
+      return link;
+    }
+    function shownLinks() {
+      const links = [];
+      for (const u of shownNodes) {
+        if (!nodes[u].expanded) continue;
+        for (const v of neighbours(u)) {
+          if (nodes[v].shown && !nodes[v].removed) links.push(linkObject(u, v));
+        }
+      }
+      return links;
+    }
+
+    // a single tooltip, filled on hover and moved to the hovered node
+    const tooltipSvg = mainGraphics.append("svg").attr("class", "tooltip").attr("display", "none");
+    const tooltip = tooltipSvg.append("g");
+    const tooltipRectangle = tooltip
+      .append("rect")
+      .attr("class", "tooltipBox")
+      .attr("x", tooltipBoxDistFromNodeX)
+      .attr("y", tooltipOffsetY)
+      .style("stroke", "black")
+      .style("stroke-width", 1)
+      .style("rx", 3)
+      .attr("fill", "black");
+    const tooltipLines = []; // {key, type, tspan}
+    {
+      let cnt = 0;
+      const basicPropertiesSelection = tooltip.append("g").attr("class", "basicInformation");
+      for (const [key, value] of Object.entries(nodePropertiesBasic)) {
+        const positionY = tooltipOffsetY + tooltipLineDistance * cnt + tooltipLineDistance;
+        const text = basicPropertiesSelection
+          .append("text")
+          .attr("class", "basicPropertyText")
+          .attr("fill", "white")
+          .attr("x", tooltipPadding)
+          .attr("y", positionY);
+        text.append("tspan").attr("class", "propertyTspan").attr("font-weight", 600).text(value + ": ");
+        tooltipLines.push({ key, type: nodePropertiesBasicType[key], tspan: text.append("tspan").attr("class", "valueTspan").attr("font-weight", 300) });
+        ++cnt;
+      }
+      const advancedPropertiesSelection = tooltip.append("g").attr("class", "advancedInformation");
+      for (const [key, value] of Object.entries(nodePropertiesAdvanced)) {
+        const positionY = tooltipLineDistance * cnt + tooltipLineDistance;
+        const text = advancedPropertiesSelection
+          .append("text")
+          .attr("class", "advancedPropertyText")
+          .attr("fill", "white")
+          .attr("x", tooltipPadding)
+          .attr("y", positionY);
+        text.append("tspan").attr("class", "advancedPropertyTspan").attr("font-weight", 600).text(value + ": ");
+        tooltipLines.push({ key, type: nodePropertiesAdvancedType[key], tspan: text.append("tspan").attr("class", "advancedValueTspan").attr("font-weight", 300) });
+        ++cnt;
+      }
+      { // dependency property
+        const positionY = tooltipLineDistance * cnt + tooltipLineDistance;
+        const text = advancedPropertiesSelection
+          .append("text")
+          .attr("class", "advancedPropertyText")
+          .attr("fill", "white")
+          .attr("x", tooltipPadding)
+          .attr("y", positionY);
+        text.append("tspan").attr("class", "advancedPropertyTspan").attr("font-weight", 600).text("depends on observed: ");
+        text.append("tspan").attr("class", "advancedValueTspanDependency").attr("font-weight", 300);
+      }
+    }
+
+    function fillTooltip(node) {
+      for (const line of tooltipLines) line.tspan.text(roundReadable(node[line.key], line.type));
+      tooltip.select(".advancedValueTspanDependency").text(isSomeObserved ? (dependsOn[node.id] ? "yes" : "no") : "");
+      let currentTooltipWidth = 0;
+      tooltip.selectAll(".basicPropertyText, .advancedPropertyText").each(function () {
+        currentTooltipWidth = Math.max(currentTooltipWidth, this.getComputedTextLength());
+      });
+      return currentTooltipWidth + 2 * tooltipPadding;
+    }
+
+    function update() {
+      // nodes
+      nodes_selection = mainGraphics
+        .select(".allNodes")
+        .selectAll(".nodes")
+        .data(
+          shownNodes.map((id) => nodes[id]),
+          (d) => d.id
+        )
+        .join(
+          function (enter) {
+            // create graphic containers for one nodes to which we will add a circle and text (label)
+            nodeGraphics = enter
+              .append("g")
+              .attr("class", "nodes")
+              .attr("transform", function (d) {
+                return "translate(" + d.y0 + "," + d.x0 + ")";
+              });
+            nodeGraphics
+              .transition()
+              .duration(duration)
+              .attr("class", "nodes")
+              .attr("transform", function (d) {
+                return "translate(" + d.y + "," + d.x + ")";
+              });
+            // create circles around nodes
+            nodeGraphics
+              .append("circle")
+              .attr("stroke-width", nodeStrokeWidth)
+              .attr("stroke", nodeCircleColor)
+              .attr("fill", (d) => setNodeColor(d))
+              .attr("r", nodeRadius);
+            // add names to nodes
+            namesOfEntries = nodeGraphics
+              .append("text")
+              .attr("class", (d) => "nameOfEntry" + d.id)
+              .attr("x", namesOfEntriesXOffset)
+              .attr("y", "0.31em")
+              .text((d) => d.name);
+
+            // add a white outline to text (label)
+            // NOTE: in svg this will add two <text> badges to a nodes <g>, one for text and one for outline
+            namesOfEntriesOutline = namesOfEntries
+              .clone(true)
+              .lower()
+              .attr("class", (d) => "nameOfEntryOutline" + d.id)
+              .attr("fill", "none")
+              .attr("stroke", "white")
+              .attr("stroke-width", 3);
+
+            return nodeGraphics;
+          },
+          function (update) {
+            update.selectAll("circle").attr("fill", (d) => setNodeColor(d));
+            return update
+              .transition()
+              .duration(duration)
+              .attr("transform", function (d) {
+                return "translate(" + d.y + "," + d.x + ")";
+              });
+          },
+          function (exit) {
+            // remove the nodes on exit with transition
+            return exit
+              .transition()
+              .duration(duration)
+              .attr("transform", function (d) {
+                return "translate(" + d.y + "," + d.x + ")";
+              })
+              .remove();
+          }
+        )
+        .on("click", clicked)
+        .on("mouseover", mousedover)
+        .on("mouseout", mousedout);
+
+      function mousedover(event) {
+        let node = d3.select(this).data()[0];
+        node.hovered = true;
+
+        d3.select(this).raise(); // make sure that the hovered node gets displayed over the others
+
+        const tooltipWidth = fillTooltip(node);
+        tooltipSvg.interrupt().attr("x", node.y).attr("y", node.x).raise();
+        tooltipSvg
+          .transition()
+          .delay(duration)
+          .attr("display", "inline");
+
+        // set height instantaneously
+        tooltipRectangle
+          .interrupt()
+          .attr("height", tooltipLineDistance * (Object.keys(nodePropertiesBasic).length + showAdvancedOptionsTickbox.property('checked') * (Object.keys(nodePropertiesAdvanced).length + 1) + 1) - 7) // add one extra line for visual padding and one for dependency
+
+        // set width with transition
+        tooltipRectangle
+          .transition()
+          .attrTween("width", () => (t) => t * tooltipWidth)
+          .delay(duration)
+          .attr("display", "inline");
+
+        // display advanced options if the tickbox for advanced options is checked
+        tooltip
+          .selectAll(".advancedInformation")
+          .style("display", showAdvancedOptionsTickbox.property('checked') ? 'inline' : 'none')
+      }
+      function mousedout(event) {
+        let node = d3.select(this).data()[0];
+        node.hovered = null;
+
+        tooltipSvg
+          .transition()
+          .delay(0)
+          .attr("display", "none");
+      }
+      function clicked(event) {
+        //endStartingPosition()
+
+        let u = d3.select(this).data()[0].id; // select the corresponding datum
+
+        if(event.altKey && showAdvancedOptionsTickbox.property('checked')){
+          set_dependency(nodes[u])
+          foreignObjectSearchbar
+            .attr("height", divSearchbar.node().getBoundingClientRect().height)
+        }
+        else{
+          if (nodes[u].expanded) {
+          collapseAndUpdate(u);
+          } else {
+            expandAndUpdate(u);
+          }
+        }
+      }
+
+      // links
+      function diagonal(s, d, offset) {
+        if (s.y == d.y) {
+          path = `M ${s.y} ${s.x}
+          C ${(s.y + d.y) / 2 + offset} ${s.x},
+            ${(s.y + d.y) / 2 + offset} ${d.x},
+            ${d.y} ${d.x}`;
+          return path;
+        } else {
+          path = `M ${s.y} ${s.x}
+          C ${(s.y + d.y) / 2} ${s.x},
+            ${(s.y + d.y) / 2} ${d.x},
+            ${d.y} ${d.x}`;
+          return path;
+        }
+      }
+      var links = d3
+        .select(".allLinks")
+        .selectAll("path")
+        .data(
+          shownLinks(),
+          (d) => d.id
+        )
+        .join(
+          function (enter) {
+            addedLink = enter
+              .insert("path", "g")
+              .attr("fill", "none")
+              .attr("stroke", (linkDatum) =>
+                getLinkAttribute(
+                  linkDatum,
+                  linkColor,
+                  linkColorHighlighted,
+                  linkColorTracked
+                )
+              )
+              .attr("stroke-width", (linkDatum) =>
+                getLinkAttribute(
+                  linkDatum,
+                  linkWidth,
+                  linkWidthHighlighted,
+                  linkWidthTracked
+                )
+              )
+              .attr("class", "links")
+              .attr("opacity", 0)
+              .attr("d", function (d) {
+                return diagonal(
+                  { x: d.source.x0, y: d.source.y0 },
+                  { x: d.target.x0, y: d.target.y0 },
+                  d.offset
+                );
+              });
+            addedLink
+              .transition()
+              .duration(duration)
+              .attr("opacity", 1)
+              .attr("d", function (d) {
+                return diagonal(
+                  { x: d.source.x, y: d.source.y },
+                  { x: d.target.x, y: d.target.y },
+                  d.offset
+                );
+              });
+          },
+          function (update) {
+            return update
+              .transition()
+              .duration(duration)
+              .attr("d", function (d) {
+                return diagonal(
+                  { x: d.source.x, y: d.source.y },
+                  { x: d.target.x, y: d.target.y },
+                  d.offset
+                );
+              });
+          },
+          function (exit) {
+            // remove the links on exit
+            return exit
+              .transition()
+              .duration(duration)
+              .attr("opacity", 0)
+              .attr("d", function (d) {
+                return diagonal(
+                  { x: d.source.x, y: d.source.y },
+                  { x: d.target.x, y: d.target.y },
+                  d.offset
+                );
+              })
+              .remove();
+          }
+        );
+
+      d3.selectAll(".allLinks")
+        .selectAll(".links")
+        .on("mouseover", mousedoverlink)
+        .on("mouseout", mousedoutlink)
+        .on("click", clickedlink);
+
+      function mousedoverlink(event) {
+        let link = d3.select(this).data()[0];
+        link.hovered = true;
+        setLinkAttributes(d3.select(this), d3.select(this).data()[0]);
+      }
+      function mousedoutlink(event) {
+        let link = d3.select(this).data()[0];
+        link.hovered = null;
+        setLinkAttributes(d3.select(this), d3.select(this).data()[0]);
+      }
+      function clickedlink(event) {
+        //endStartingPosition()
+
+        let link = d3.select(this).data()[0];
+
+        if (link.tracked == null) {
+          link.tracked = true;
+        } else {
+          link.tracked = null;
+        }
+
+        setLinkAttributes(d3.select(this), d3.select(this).data()[0]);
+      }
+    }
+
+    // load the roots and the root's children, then show them
+    async function start() {
+      await ensureNodes(roots);
+      await ensureAdjacency(rootid);
+      await ensureNodes(neighbours(rootid));
+      await applyInitiallyConnect();
+
+      arrangeTree();
+      saveOldPositions();
+
+      await expand(rootid);
+      saveOldPositions();
+      arrangeTree(); // correct order: the first ones created should have old position same as they are foundational
+      update();
+
+      foreignObjectCheckbox.raise();
+    }
+    queueUpdate(start);
+  </script>
+</body>
