@@ -15,10 +15,8 @@ function showNode(v) {
 
 // children of u that may be shown; options such as hiding internal declarations go here
 function visibleChildren(u) {
-  // Lean data: library, namespace and module nodes also have module dependency edges.
-  // Module-level graph: they expand into the folders/modules below them and the modules they
-  // depend on, never into declarations. Otherwise: only into what they contain.
-  if (moduleView && isTreeNode(u)) return neighbours(u).filter(v => isTreeNode(v) && !nodes[v].removed)
+  // Lean data: library, namespace and module nodes also have module dependency edges (drawn by
+  // the option "Display connections between modules"); they expand only into what they contain
   if (graphManifest.source && isTreeNode(u)) return neighbours(u).filter(v => nodes[v].parent == u && !nodes[v].removed)
   return neighbours(u).filter(v => !nodes[v].removed)
 }

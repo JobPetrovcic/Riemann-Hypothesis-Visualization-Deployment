@@ -21,7 +21,7 @@ function getLinkAttribute(linkDatum, onNormal, onHighlighted, onTrack) { //}, on
   else return onNormal
 }
 
-// dependency links (module view) are drawn only for the hovered node (focus 'out' / 'in')
+// connections between modules are faint unless an end node is hovered (focus 'out' / 'in')
 function dependencyLinkColor(d) {
   return d.focus == 'out' ? linkColorDependencyOut : d.focus == 'in' ? linkColorDependencyIn : linkColorDependency
 }
@@ -32,7 +32,6 @@ function setLinkAttributes(link) {
     .attr('stroke-width', d => getLinkAttribute(d, d.dependency ? linkWidthDependency(d.count) : linkWidth, linkWidthHighlighted, linkWidthTracked))
     .attr('stroke-opacity', d => d.dependency && !(d.focus || d.hovered || d.tracked) ? linkOpacityDependency : null)
     .attr('stroke-dasharray', d => d.dependency ? '6 4' : null)
-    .style('display', d => d.dependency && !(d.focus || d.hovered || d.tracked) ? 'none' : null)
 }
 
 function shortenName(name) {

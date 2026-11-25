@@ -1,25 +1,14 @@
-// Module-level view (option "Module dependencies"). Library, namespace and module nodes ("tree
-// nodes") then expand only into their containment children (parent[v] == u), and the
-// module -> module dependency edges of the data are drawn between the shown tree nodes, lifted
-// to the nearest shown ancestor (a collapsed folder stands for all modules below it).
-// Declarations expand into their dependencies as before.
+// Option "Display connections between modules": draws the module -> module dependency edges of the
+// data between the shown library/namespace/module nodes ("tree nodes"), lifted to the nearest
+// shown ancestor (a collapsed folder stands for all modules below it).
 // Assumes, as written by the leangraph converter, that the tree nodes have the smallest ids.
-var moduleView = false
+var showModuleConnections = false
 var treeNodeCount = 0       // ids 0 .. treeNodeCount-1 are tree nodes
 var moduleDependencies = null // CSR over tree nodes: {off, target}
 const treeNodeLabels = [':library', ':namespace', ':module', ':external-library', ':external-module']
 
 function isTreeNode(u) {
   return treeNodeLabels.includes(nodes[u].label)
-}
-
-// text next to a node: in the module-level graph modules are shown with their full name, since
-// a module's dependencies come from all over the library
-function nodeLabel(d) {
-  if (!moduleView || d.label != ':module') return d.name
-  const parts = [d.name]
-  for (let u = d.parent; u >= 0 && nodes[u].parent >= 0; u = nodes[u].parent) parts.push(nodes[u].name)
-  return parts.reverse().join('.')
 }
 
 async function ensureModuleDependencies() {
@@ -82,20 +71,10 @@ function focusDependencyLinks(node) {
     .raise()
 }
 
-// switching the view: collapse everything (with the old expansion rule), then show the root again
-function setModuleView(on) {
+function setShowModuleConnections(on) {
   return queueUpdate(async () => {
-    unshowed = []
-    for (const r of roots) collapse(r)
     if (on) await ensureModuleDependencies()
-    moduleView = on
-    await expand(rootid)
-    saveOldPositions()
-    arrangeTree()
-    svg.transition().duration(duration).call(
-      zoom.transform,
-      d3.zoomIdentity.translate(-nodes[rootid].y, -nodes[rootid].x)
-    )
+    showModuleConnections = on
     update()
   })
 }

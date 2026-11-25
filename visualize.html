@@ -274,7 +274,7 @@
   <script type="text/javascript" src="scripts/setUpData.js"></script>
   <script type="text/javascript" src="scripts/setupSvg.js"></script>
   <script type="text/javascript" src="scripts/sourceCard.js"></script>
-  <script type="text/javascript" src="scripts/moduleView.js"></script>
+  <script type="text/javascript" src="scripts/moduleConnections.js"></script>
   <script type="text/javascript" src="scripts/expansion.js"></script>
   <script type="text/javascript" src="scripts/arrangeTree.js"></script>
   <script type="text/javascript">
@@ -309,7 +309,7 @@
           if (nodes[v].shown) links.push(linkObject(u, v));
         }
       }
-      if (moduleView) links.push(...moduleDependencyLinks());
+      if (showModuleConnections) links.push(...moduleDependencyLinks());
       return links;
     }
 
@@ -320,7 +320,7 @@
       if (hoveredNode === null) return;
       hoveredNode.hovered = null;
       hoveredNode = null;
-      if (moduleView) focusDependencyLinks(null);
+      if (showModuleConnections) focusDependencyLinks(null);
       scheduleHideCard();
     }
     svg.on("mouseover.hover", (event) => {
@@ -365,7 +365,7 @@
               .attr("class", (d) => "nameOfEntry" + d.id)
               .attr("x", namesOfEntriesXOffset)
               .attr("y", "0.31em")
-              .text((d) => nodeLabel(d));
+              .text((d) => d.name);
 
             // add a white outline to text (label)
             // NOTE: in svg this will add two <text> badges to a nodes <g>, one for text and one for outline
@@ -412,7 +412,7 @@
         // make sure that the hovered node gets displayed over the others (only once: moving the
         // element under the mouse can make the browser skip its mouseout, see endNodeHover)
         if (this.nextSibling) d3.select(this).raise();
-        if (moduleView) focusDependencyLinks(node);
+        if (showModuleConnections) focusDependencyLinks(node);
 
         scheduleShowCard(node, this);
       }
