@@ -5,8 +5,15 @@ const height = window.innerHeight || 600
 const startNodeColor = '#DF2E38'
 
 // constants for helpToolIcon and helpToolBar
-const helpToolIconBoundaryDistance = 25
+const helpToolIconBoundaryDistance = 34
 const iconCircleSize = 30
+const iconSpacing = 42 // vertical distance of the icons at the top right
+
+// panels (options, scoreboard, search)
+const uiFont = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+const panelBorderColor = '#d8dee4'
+const panelRadius = 6
+const panelMargin = 6
 
 const barWidths = 250;
 const barHeights = 400;
@@ -24,8 +31,8 @@ const startingCaptionFontSize = 10
 const wheelScrollSpeed = 30;
 const wheelScrollSpeedFast = 120;
 
-const collapseAllButtonWidth = 80;
-const collapseAllButtonHeight = 30;
+const collapseAllButtonWidth = 100;
+const collapseAllButtonHeight = 34;
 
 const scoreboardPadding = {left:5, right:5, top:0, bottom:0 }
 const scoreboardNumberOfEntries = 5;
@@ -113,24 +120,23 @@ const nodePropertiesAdvancedType = {
 }
 
 // constants for LINKS
-const linkColor = '#ccc'
+const linkColor = '#d3d9e0'
 const linkColorHighlighted = '#ADB446'
 const linkColorTracked = '#B44655'
 const linkColorSourceHovered = '#708090'
 
-const linkWidth = '3px'
-const linkWidthHighlighted = '7px'
+const linkWidth = '2px'
+// module view: lifted module dependency links, wider when they stand for more module pairs
+const linkColorDependency = '#8fb3d9'
+const linkColorDependencyOut = '#2f6fb5' // of the hovered node: modules it uses
+const linkColorDependencyIn = '#d9822b'  // of the hovered node: modules using it
+const linkOpacityDependency = 0.15
+const linkWidthDependency = count => (1 + Math.log10(count)).toFixed(1) + 'px'
+const linkWidthHighlighted = '5px'
 const linkWidthTracked = linkWidthHighlighted
 const linkWidthSourceHovered = linkWidthHighlighted
 
 // constants for TOOLTIPS
-const tooltipLineDistance = 18 // distance between lines in the tooltip in pixels
-
-const tooltipBoxDistFromNodeX = 10 // the distance from the node and the tooltip box in pixels in the x direction
-const tooltipWidth = 250 // tooltip width in pixels
-const tooltipPadding = 20
-const tooltipOffsetY = 6;
-
 const timeHoveredToTooltip = 1000 // milisecond for which a user must hover over the node to display the node's tooltip
 
 const duration = 550 // duration of expansion of tooltip

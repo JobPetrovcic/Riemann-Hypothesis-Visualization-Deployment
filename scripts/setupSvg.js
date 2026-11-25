@@ -21,19 +21,25 @@ var svg = mainDiv
 var foreignObjectCheckbox = svg.append('foreignObject')
   .attr('x', -width / 2)
   .attr('y', height / 2)
-  .attr('width', 300)
-  .attr('height', 30)
+  .attr('width', 600)
+  .attr('height', 200)
   .on("dblclick mousedown mouseup mouseover mouseout mousemove mouseenter mouseleave contextmenu", function (event) {
     event.stopPropagation();
   });
 
-var foreignObjectCheckboxDiv = foreignObjectCheckbox.append('xhtml:div')
-  .style('display', 'flex')
-  .style('align-items', 'center')
-  .style('user-select', 'none') // Prevent text selection
-  .style('background-color', 'white')
-  //.style('border', '2px solid black')
-  .style('border-radius', `${barRadii}` + 'px'); 
+var optionsPanel = foreignObjectCheckbox.append('xhtml:div')
+  .attr('class', 'optionsPanel');
+
+// node kinds present in the data
+var kindLegend = optionsPanel.append('div').attr('class', 'kindLegend');
+Object.entries(colorPalette).filter(([label]) => graphManifest.labels.includes(label)).forEach(([label, color]) => {
+  let item = kindLegend.append('span');
+  item.append('i').style('background', color);
+  item.append('span').text(label.replace(/^:/, ''));
+});
+
+var foreignObjectCheckboxDiv = optionsPanel.append('div')
+  .attr('class', 'optionsRow');
 
 var showAdvancedOptionsTickbox = foreignObjectCheckboxDiv
   .append('input')
@@ -46,18 +52,31 @@ var checkboxText = foreignObjectCheckboxDiv.append('label')
   .attr('for', 'advancedOptionsInput')
   .text("Show advanced options");
 
+// module-level view, see moduleView.js
+var moduleViewTickbox = foreignObjectCheckboxDiv
+  .append('input')
+  .attr('type', 'checkbox')
+  .attr('id', 'moduleViewInput')
+  .attr('autocomplete', 'off')
+  .on('change', () => setModuleView(moduleViewTickbox.property('checked')));
+
+foreignObjectCheckboxDiv.append('label')
+  .attr('for', 'moduleViewInput')
+  .text("Module-level graph");
+
 {
-  let bbox = foreignObjectCheckboxDiv.node().getBoundingClientRect();
-  let calculatedWidth = showAdvancedOptionsTickbox.node().getBoundingClientRect().width + checkboxText.node().getBoundingClientRect().width + 40;
+  // the panel has a margin for its shadow
+  let bbox = optionsPanel.node().getBoundingClientRect();
   foreignObjectCheckbox
-    .attr('width', calculatedWidth)
-    .attr('height', bbox.height)
-    .attr('y', height / 2 - bbox.height);
+    .attr('width', bbox.width + 2 * panelMargin)
+    .attr('height', bbox.height + 2 * panelMargin)
+    .attr('y', height / 2 - bbox.height - 2 * panelMargin);
 }
 
 const zoom = d3.zoom()
   .on("zoom", (event) => {
     mainGraphics.attr("transform", event.transform);
+    if (typeof hideCard !== 'undefined') hideCard(); // the card would no longer be next to its node
   })
   .filter(function (event) {
     if (event.shiftKey) {
@@ -98,6 +117,7 @@ isSomeObserved = false;
 
 // ICONS 
 helpToolIcon = svg.append("g")
+  .attr("class", "toolIcon")
   .attr("transform", "translate(" + (width / 2 - helpToolIconBoundaryDistance) + ", " + (-height / 2 + helpToolIconBoundaryDistance) + ")")
 
 helpToolIcon
@@ -109,11 +129,13 @@ helpToolIcon
   .attr("opacity", 0)
 
 helpToolIcon
-  .append("circle")
-  .attr("r", iconCircleSize/2)
-  .attr("cx", 12)
-  .attr("cy", 12)
-  .attr("fill", "white")
+  .append("rect")
+  .attr("class", "iconBackground")
+  .attr("x", -3)
+  .attr("y", -3)
+  .attr("width", 30)
+  .attr("height", 30)
+  .attr("rx", 8)
 
 helpToolIcon
   .append("path")
@@ -156,7 +178,8 @@ helpToolIcon
 // Legend tool bar Code
 
 legendIcon = svg.append("g")
-  .attr("transform", "translate(" + (width / 2 - helpToolIconBoundaryDistance) + ", " + (-height / 2 + 4 * iconCircleSize + helpToolIconBoundaryDistance) + ")")
+  .attr("class", "toolIcon")
+  .attr("transform", "translate(" + (width / 2 - helpToolIconBoundaryDistance) + ", " + (-height / 2 + 2 * iconSpacing + helpToolIconBoundaryDistance) + ")")
 
 legendIcon
   .append("circle")
@@ -167,11 +190,13 @@ legendIcon
   .attr("opacity", 0)
 
 legendIcon
-  .append("circle")
-  .attr("r", iconCircleSize/2)
-  .attr("cx", 12)
-  .attr("cy", 12)
-  .attr("fill", "white")
+  .append("rect")
+  .attr("class", "iconBackground")
+  .attr("x", -3)
+  .attr("y", -3)
+  .attr("width", 30)
+  .attr("height", 30)
+  .attr("rx", 8)
 
 legendIcon
   .append("path")
@@ -222,7 +247,8 @@ legendIcon
 
 // Color legend tool bar Code
 let colorLegendIcon = svg.append("g")
-  .attr("transform", "translate(" + (width / 2 - helpToolIconBoundaryDistance) + ", " + (-height / 2 + 2 * iconCircleSize + helpToolIconBoundaryDistance) + ")")
+  .attr("class", "toolIcon")
+  .attr("transform", "translate(" + (width / 2 - helpToolIconBoundaryDistance) + ", " + (-height / 2 + iconSpacing + helpToolIconBoundaryDistance) + ")")
 
 colorLegendIcon
   .append("circle")
@@ -233,11 +259,13 @@ colorLegendIcon
   .attr("opacity", 0)
 
 colorLegendIcon
-  .append("circle")
-  .attr("r", iconCircleSize/2)
-  .attr("cx", 12)
-  .attr("cy", 12)
-  .attr("fill", "white")
+  .append("rect")
+  .attr("class", "iconBackground")
+  .attr("x", -3)
+  .attr("y", -3)
+  .attr("width", 30)
+  .attr("height", 30)
+  .attr("rx", 8)
 
 colorLegendIcon
   .append("path")
@@ -281,12 +309,11 @@ let helpToolBar = svg
   .attr('id', 'helpToolBar')
   .attr('width', barWidths)
   .attr('height', barHeights + 2 * barPaddings + 'px')
-  .style('border', '1px solid black')
-  .style('border-radius', `${barRadii}` + 'px')
+  .attr('class', 'toolBar')
   .style('background', 'white')
   .append('xhtml:div')
   .style('width', barWidths)
-  .style('height', barHeights + 'px')
+  .style('height', barHeights + 2 * barPaddings + 'px')
   .style('font-weight', 300)
   .style('overflow', 'auto')
   .style('padding', barPaddings + 'px')
@@ -297,7 +324,7 @@ d3.select('#helpToolBar').on('wheel mousedown touchstart dblclick', function (ev
 
 // Add the message text
 helpToolBar.append('div')
-  .text("Click and drag to move around. Click on nodes to expand their neighbors. If a node is darker, it is already expanded or has no neighbors. Click on links to track them, which marks them. Click again to untrack. \n \n Use the scroll wheel to zoom in and out. Holding shift while scrolling moves up and down instead. Moreover, holding the Alt key speeds up this scrolling. Hover over a node to show some of its properties. \n \n To enable advanced options, tick the tickbox. Some additional properties of nodes are now shown when hovering over them. An option to collapse all nodes becomes available on the bottom right. On the top left, a scrollable scoreboard displaying nodes with the highest indegree appears. Below it, a search tool to find nodes by name becomes visible. Search for a node by name, click on the search entry to expand the node, and center the viewbox on it. \n \n If you hold the Alt key when you click on the search entry, the node is not centered on but instead becomes 'observed' (the observed node's name is in the black box just above the searchbar). The last property, when hovering over an arbitrary node, now shows the dependency on the observed node. This means that in the construction of an entry in the library, the observed node's entry was used somewhere. \n \n If you want to observe a node without expanding and centering on it, click on it while holding the Alt key (or find it in the searchbar and click on the entry while holding the Alt key.)")
+  .text("Click and drag to move around. Click on nodes to expand their neighbors. If a node is darker, it is already expanded or has no neighbors. Click on links to track them, which marks them. Click again to untrack. \n \n Use the scroll wheel to zoom in and out. Holding shift while scrolling moves up and down instead. Moreover, holding the Alt key speeds up this scrolling. Hover over a node to show some of its properties. \n \n To enable advanced options, tick the tickbox. Some additional properties of nodes are now shown when hovering over them. An option to collapse all nodes becomes available on the bottom right. On the top left, a scrollable scoreboard displaying nodes with the highest indegree appears. Below it, a search tool to find nodes by name becomes visible. Search for a node by name, click on the search entry to expand the node, and center the viewbox on it. \n \n If you hold the Alt key when you click on the search entry, the node is not centered on but instead becomes 'observed' (the observed node's name is in the black box just above the searchbar). The last property, when hovering over an arbitrary node, now shows the dependency on the observed node. This means that in the construction of an entry in the library, the observed node's entry was used somewhere. \n \n If you want to observe a node without expanding and centering on it, click on it while holding the Alt key (or find it in the searchbar and click on the entry while holding the Alt key.) \n \n Hovering a declaration of a Lean library also shows its source (statement, and the proof behind a button) with a link to GitHub. The option 'Module-level graph' (bottom left) shows the dependencies between the modules: folders and modules expand only into what they contain, and hovering a folder or module draws its dependencies on the other shown folders and modules as dashed links (blue = uses, orange = used by; a collapsed folder stands for all modules below it).")
   .style('white-space', 'pre-line');  // Preserve newlines in the message
 
 var isHelpToolBarHovered = false
@@ -325,13 +352,12 @@ d3
 
 let colorLegendToolBar = svg
   .append('g')
-  .attr("transform", "translate(" + (width / 2 - colorLegendToolBarWidth - helpToolIconBoundaryDistance) + ", " + (-height / 2 + 2 * iconCircleSize + helpToolIconBoundaryDistance) + ")")
+  .attr("transform", "translate(" + (width / 2 - colorLegendToolBarWidth - helpToolIconBoundaryDistance) + ", " + (-height / 2 + iconSpacing + helpToolIconBoundaryDistance) + ")")
   .append('foreignObject')
   .attr('id', 'colorLegendToolBar')
   .attr('width', barWidths)
   .attr('height', barHeights + 2 * barPaddings + 'px')
-  .style('border', '1px solid black')
-  .style('border-radius', `${barRadii}` + 'px')
+  .attr('class', 'toolBar')
 
 d3.select('#colorLegendToolBar').on('wheel mousedown touchstart dblclick', function (event) {
   event.stopPropagation();
@@ -402,13 +428,12 @@ d3
 // Create the help toolbar as a foreign object
 let legendToolBar = svg
   .append('g')
-  .attr("transform", "translate(" + (width / 2 - legendToolBarWidth - helpToolIconBoundaryDistance) + ", " + (-height / 2 + 4 * iconCircleSize + helpToolIconBoundaryDistance) + ")")
+  .attr("transform", "translate(" + (width / 2 - legendToolBarWidth - helpToolIconBoundaryDistance) + ", " + (-height / 2 + 2 * iconSpacing + helpToolIconBoundaryDistance) + ")")
   .append('foreignObject')
   .attr('id', 'legendToolBar')
   .attr('width', barWidths)
   .attr('height', barHeights + 2 * barPaddings + 'px')
-  .style('border', '1px solid black')
-  .style('border-radius', `${barRadii}` + 'px')
+  .attr('class', 'toolBar')
   .style('background', 'white')
 
 let legendToolBarForeignObject = legendToolBar
@@ -520,11 +545,11 @@ d3
     .attr("x", -scoreboardPadding.left)
     .attr("y", -scoreboardPadding.top)
     .attr("height", (topNodes.length + 1) * scoreboardLineHeight + scoreboardPadding.top + scoreboardPadding.bottom)
-    .attr("rx", outlineRadius)
-    .attr("ry", outlineRadius)
+    .attr("rx", panelRadius)
+    .attr("ry", panelRadius)
     .attr("fill", "white")
-    .attr("stroke", "#333333")
-    .attr("stroke-width", outlineRadius);
+    .attr("stroke", panelBorderColor)
+    .attr("stroke-width", 1);
 
   // append header
   header = scoreboardGroup
@@ -691,8 +716,8 @@ d3
     .attr("x2", calculatedScoreboardWidth + scoreboardPadding.right)
     .attr("y1", scoreboardLineHeight)
     .attr("y2", scoreboardLineHeight)
-    .attr("stroke", "black")
-    .attr("stroke-width", outlineRadius)
+    .attr("stroke", panelBorderColor)
+    .attr("stroke-width", 1)
 
   scoreboardGroup.selectAll("line.divider")
     .data(topNodes.slice(1))
@@ -714,32 +739,31 @@ d3
   // search bar
   // again we use foreignObject to use html elements
   foreignObjectSearchbar = svg.append("foreignObject")
-    .attr('x', -width / 2 + 2)
-    .attr('y', scoreboardBottomY - height / 2 + 20)
+    .attr('x', -width / 2 + outlineRadius)
+    .attr('y', scoreboardBottomY - height / 2 + 12)
     .attr("width", calculatedScoreboardWidth + scoreboardPadding.left + scoreboardPadding.right + searchbarRadius * 2) // note: when foreign objects overlap the upper ones disable input to lower ones
   //.attr("height", 12 + scoreboardPadding.bottom + scoreboardPadding.top)
 
 
   divSearchbar = foreignObjectSearchbar
     .append("xhtml:div")
-    .style("font-family", "sans-serif")
-    .style("font-size", 15);
+    .attr("class", "searchPanel");
 
   advancedOptionsArray.push([foreignObjectSearchbar, 'inline']);
 
   lastSearch = divSearchbar.append("xhtml:textarea")
     .attr("type", "text")
     .attr("readonly", true) // make it immutable
-    .style("background-color", "black")
-    .style("color", "white")
-    .style("border", `${outlineRadius}px solid black`)
+    .style("background-color", "#f6f8fa")
+    .style("color", "#1f2328")
+    .style("border", `1px solid ${panelBorderColor}`)
     .style("border-radius", `${searchbarRadius}px`)
     .style("padding-top", `${scoreboardPadding.top}px`)
     .style("padding-right", `${scoreboardPadding.right}px`)
     .style("padding-bottom", `${scoreboardPadding.bottom}px`)
     .style("padding-left", `${scoreboardPadding.left}px`)
     .property("value", "[  ]")
-    .style("width", `${calculatedScoreboardWidth}px`)
+    .style("width", `${calculatedScoreboardWidth + scoreboardPadding.left + scoreboardPadding.right}px`)
     .style("outline", "none") // Remove any default outline
     .style("box-shadow", "none")
     .style("text-align", "center")
@@ -763,9 +787,9 @@ d3
     .style("padding-right", `${scoreboardPadding.right}px`)
     .style("padding-bottom", `${scoreboardPadding.bottom}px`)
     .style("padding-left", `${scoreboardPadding.left}px`)
-    .style("border", `${outlineRadius}px solid black`)
+    .style("border", `1px solid ${panelBorderColor}`)
     .style("border-radius", `${searchbarRadius}px`)
-    .style("width", `${calculatedScoreboardWidth}px`)
+    .style("width", `${calculatedScoreboardWidth + scoreboardPadding.left + scoreboardPadding.right}px`)
     .style("outline", "none") // Remove any default outline
     .style("box-shadow", "none");
 
@@ -794,7 +818,7 @@ d3
     }
 
     var clickTimeout;
-    dataList.style("display", "inline")
+    dataList.style("display", "block")
     list.selectAll("li")
       .data(filteredData)
       .enter()
@@ -805,10 +829,6 @@ d3
       .style("padding-bottom", `${scoreboardPadding.bottom}px`)
       .style("padding-left", `${scoreboardPadding.left}px`)
       .style("font-size", "12px")
-      .style("color", "grey")
-      .style("border", "1px solid black")
-      .style("border-radius", "2px")
-      .style("background-color", "white")
       .on("dblclick", function (event) { clearTimeout(clickTimeout); event.stopPropagation(); })
       .on("click", function (event, datum) {
         event.stopPropagation();
@@ -893,6 +913,7 @@ d3
   foreignObjectCollapseAllButton = svg.append('foreignObject')
     .attr('width', collapseAllButtonWidth)
     .attr('height', collapseAllButtonHeight)
+    .attr('class', 'collapseAll')
     .attr('x', width / 2 - collapseAllButtonWidth)
     .attr('y', height / 2 - collapseAllButtonHeight)
 
@@ -901,17 +922,6 @@ d3
   collapseAllButton = foreignObjectCollapseAllButton.append('xhtml:button')
     .text('Collapse All')
     .attr('class', 'collapse-button');
-
-  collapseAllButton
-    .style('font-weight', 'bold')
-    .style('padding', '3px')
-    .style('background-color', 'white')
-    .style('color', '#000')
-    .style('border', '2px solid #000')
-    .style('border-radius', '3px')
-    .style('font-size', '10px')
-    .style('font-family', 'sans-serif')
-    .style('cursor', 'pointer')
 
   collapseAllButton.on('click', function () {
     collapseAndUpdateandJump(rootid);
