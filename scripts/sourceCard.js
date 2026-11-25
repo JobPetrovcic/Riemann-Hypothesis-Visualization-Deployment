@@ -61,22 +61,29 @@ function openCard(node, anchor) {
   if (sourceBase && node.range) showSource(node)
 }
 
-// next to the hovered node, flipped to its left or moved up when it would leave the window;
-// while the mouse is on the card (proof toggled, source arrived) it stays put and scrolls instead
+// Beside the hovered node's label, just below its row (so the nodes left and right of it stay
+// reachable), or above the row / flipped to the left when it would leave the window. When the card
+// grows while the mouse is on it (source arrived, proof opened), it moves up / left only as far as
+// needed to stay in the window, so it stays under the mouse. Taller than the window: it scrolls,
+// with the header kept in view.
 function placeCard() {
   if (cardNode === null) return
-  const box = card.node().getBoundingClientRect()
-  if (cardHovered) {
-    card.style('max-height', (window.innerHeight - box.top - 8) + 'px')
-    card.style('max-width', `min(640px, ${window.innerWidth - box.left - 8}px)`)
-    return
-  }
-  card.style('max-height', null).style('max-width', null)
-  const r = cardAnchor.getBoundingClientRect()
+  card.style('max-height', (window.innerHeight - 16) + 'px')
   const w = card.node().offsetWidth, h = card.node().offsetHeight
-  let left = r.right + 10
-  if (left + w > window.innerWidth - 8) left = Math.max(8, r.left - 10 - w)
-  const top = Math.max(8, Math.min(r.top - 10, window.innerHeight - h - 8))
+  let left, top
+  if (cardHovered) {
+    const box = card.node().getBoundingClientRect()
+    left = box.left
+    top = box.top
+  } else {
+    const r = cardAnchor.getBoundingClientRect()
+    left = r.right + 10
+    if (left + w > window.innerWidth - 8) left = r.left - 10 - w
+    top = r.bottom + 6
+    if (top + h > window.innerHeight - 8) top = r.top - 6 - h
+  }
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8))
+  top = Math.max(8, Math.min(top, window.innerHeight - h - 8))
   card.style('left', left + 'px').style('top', top + 'px')
 }
 
