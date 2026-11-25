@@ -13,6 +13,15 @@ function isTreeNode(u) {
   return treeNodeLabels.includes(nodes[u].label)
 }
 
+// text next to a node: in the module-level graph modules are shown with their full name, since
+// a module's dependencies come from all over the library
+function nodeLabel(d) {
+  if (!moduleView || d.label != ':module') return d.name
+  const parts = [d.name]
+  for (let u = d.parent; u >= 0 && nodes[u].parent >= 0; u = nodes[u].parent) parts.push(nodes[u].name)
+  return parts.reverse().join('.')
+}
+
 async function ensureModuleDependencies() {
   if (moduleDependencies) return
   let count = 0

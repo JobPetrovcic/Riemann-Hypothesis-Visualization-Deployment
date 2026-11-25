@@ -365,7 +365,7 @@
               .attr("class", (d) => "nameOfEntry" + d.id)
               .attr("x", namesOfEntriesXOffset)
               .attr("y", "0.31em")
-              .text((d) => d.name);
+              .text((d) => nodeLabel(d));
 
             // add a white outline to text (label)
             // NOTE: in svg this will add two <text> badges to a nodes <g>, one for text and one for outline
